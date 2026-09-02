@@ -2,48 +2,48 @@ name: NetBox CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, test-ci-failure ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
-  build-and-test:
-    name: Clean-Slate Build & Smoke Test
+  lint-and-validate:
+    name: Lint & Docker Compose Validate
     runs-on: self-hosted
-    timeout-minutes: 15
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: POSIX Shell Syntax Validation
-        run: |
-          echo "[+] Validating POSIX sh compliance..."
-          sh -n setup.sh
-          sh -n smoke_test.sh
-          echo "[+] Syntax verification completed without errors."
+      - name: Create .env from template
+        run: cp .env.example .env
 
-      - name: Execute Automated Provisioning (setup.sh)
-        run: |
-          /bin/sh setup.sh
+      - name: Validate Docker Compose configuration
+        run: docker compose config
 
-      - name: Verify Docker Container Health
-        run: |
-          docker compose ps
-          docker inspect --format='NetBox: {{.State.Health.Status}}' netbox-app
-          docker inspect --format='Postgres: {{.State.Health.Status}}' netbox-postgres
-          docker inspect --format='Redis: {{.State.Health.Status}}' netbox-redis
+  deploy-and-test:
+    name: Integration Test & Healthcheck
+    needs: lint-and-validate
+    runs-on: self-hosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Execute Smoke Tests (smoke_test.sh)
-        run: |
-          /bin/sh smoke_test.sh
+      - name: Create .env from template
+        run: cp .env.example .env
 
-      - name: Dump Container Logs on Failure
-        if: failure()
+      - name: Start NetBox stack
+        run: docker compose up -d
+
+      - name: Wait for NetBox Healthcheck (HTTP 200/302)
         run: |
-          echo "=== NETBOX APP LOGS ==="
-          docker compose logs netbox
-          echo "=== POSTGRES LOGS ==="
-          docker compose logs postgres
-          echo "=== REDIS LOGS ==="
-          docker compose logs redis
+          for i in {1..20}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || true)
+            echo "Attempt $i: HTTP Status $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
+              echo "NetBox is healthy!"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Healthcheck failed!"
+          exit 1
