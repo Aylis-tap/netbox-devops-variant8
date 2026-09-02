@@ -97,3 +97,4 @@ volumes:
   netbox-postgres-data:
   netbox-redis-data:
   netbox-media-data:
+invalid_syntax_error: [unclosed_bracket
