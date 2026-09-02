@@ -34,12 +34,25 @@ jobs:
       - name: Ensure clean workspace
         run: docker compose down -v || true
 
-      - name: Start NetBox stack
+      - name: Start PostgreSQL and Redis
+        run: docker compose up -d postgres redis
+
+      - name: Wait for PostgreSQL readiness
+        run: |
+          for i in {1..30}; do
+            if docker compose exec postgres pg_isready -U netbox -d netbox; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Start NetBox and Monitoring stack
         run: docker compose up -d
 
       - name: Wait for NetBox Healthcheck (HTTP 200/302)
         run: |
-          for i in {1..35}; do
+          for i in {1..30}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || true)
             echo "Attempt $i: HTTP Status $STATUS"
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
@@ -49,7 +62,7 @@ jobs:
             sleep 4
           done
           echo "Healthcheck failed! Showing NetBox logs:"
-          docker compose logs --tail=40 netbox
+          docker compose logs --tail=50 netbox
           exit 1
 
       - name: Cleanup containers
