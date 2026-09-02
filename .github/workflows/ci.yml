@@ -1,0 +1,49 @@
+name: NetBox CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    name: Clean-Slate Build & Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: POSIX Shell Syntax Validation
+        run: |
+          echo "[+] Validating POSIX sh compliance..."
+          sh -n setup.sh
+          sh -n smoke_test.sh
+          echo "[+] Syntax verification completed without errors."
+
+      - name: Execute Automated Provisioning (setup.sh)
+        run: |
+          /bin/sh setup.sh
+
+      - name: Verify Docker Container Health
+        run: |
+          docker compose ps
+          docker inspect --format='NetBox: {{.State.Health.Status}}' netbox-app
+          docker inspect --format='Postgres: {{.State.Health.Status}}' netbox-postgres
+          docker inspect --format='Redis: {{.State.Health.Status}}' netbox-redis
+
+      - name: Execute Smoke Tests (smoke_test.sh)
+        run: |
+          /bin/sh smoke_test.sh
+
+      - name: Dump Container Logs on Failure
+        if: failure()
+        run: |
+          echo "=== NETBOX APP LOGS ==="
+          docker compose logs netbox
+          echo "=== POSTGRES LOGS ==="
+          docker compose logs postgres
+          echo "=== REDIS LOGS ==="
+          docker compose logs redis

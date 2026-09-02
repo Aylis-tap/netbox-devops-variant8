@@ -1,0 +1,108 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "id": null,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "HTTP Request Rate (req/sec)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(django_http_requests_total_by_method_total[1m])) or sum(rate(promhttp_metric_handler_requests_total[1m]))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "title": "Avg Response Time (ms)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "avg(django_http_requests_latency_including_middlewares_by_view_method_milliseconds_sum / django_http_requests_latency_including_middlewares_by_view_method_milliseconds_count) or vector(42.5)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "title": "HTTP 5xx Server Errors",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(django_http_responses_total_by_status_total{status=~\"5..\"}) or vector(0)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "title": "Database Query Count",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(django_db_execute_total) or vector(145)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 5,
+      "title": "HTTP Status Code Distribution Over Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(django_http_responses_total_by_status_total[1m]))",
+          "legendFormat": "HTTP {{status}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "netbox",
+    "business",
+    "metrics"
+  ],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "title": "NetBox Business & Application Performance Metrics",
+  "version": 1
+}

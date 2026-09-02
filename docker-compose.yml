@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: netbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-netbox}
+      POSTGRES_USER: ${DB_USER:-netbox}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - netbox-postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-netbox} -d ${DB_NAME:-netbox}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - netbox-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: netbox-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - netbox-redis-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - netbox-net
+
+  netbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netbox-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-netbox}
+      DB_USER: ${DB_USER:-netbox}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      SECRET_KEY: ${SECRET_KEY}
+      METRICS_ENABLED: "true"
+    volumes:
+      - netbox-media-data:/opt/netbox/netbox/media
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          memory: 256M
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    networks:
+      - netbox-net
+
+networks:
+  netbox-net:
+    driver: bridge
+
+volumes:
+  netbox-postgres-data:
+  netbox-redis-data:
+  netbox-media-data:

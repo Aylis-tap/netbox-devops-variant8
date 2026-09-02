@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: netbox-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+    networks:
+      - monitoring-net
+      - app-net
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: netbox-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+    networks:
+      - monitoring-net
+
+  loki:
+    image: grafana/loki:2.8.4
+    container_name: netbox-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+    networks:
+      - monitoring-net
+
+  promtail:
+    image: grafana/promtail:2.8.4
+    container_name: netbox-promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+    networks:
+      - monitoring-net
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: netbox-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - monitoring-net
+
+networks:
+  monitoring-net:
+    driver: bridge
+  app-net:
+    external: true
+    name: netbox-devops-variant8_netbox-net
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  loki-data:
