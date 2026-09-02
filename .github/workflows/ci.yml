@@ -9,7 +9,7 @@ on:
 jobs:
   build-and-test:
     name: Clean-Slate Build & Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 15
 
     steps:
