@@ -40,7 +40,7 @@ jobs:
       - name: Wait for PostgreSQL readiness
         run: |
           for i in {1..30}; do
-            if docker compose exec postgres pg_isready -U netbox -d netbox; then
+            if docker compose exec -T postgres pg_isready -U netbox -d netbox; then
               echo "PostgreSQL is ready!"
               break
             fi
@@ -52,17 +52,18 @@ jobs:
 
       - name: Wait for NetBox Healthcheck (HTTP 200/302)
         run: |
-          for i in {1..30}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || true)
-            echo "Attempt $i: HTTP Status $STATUS"
+          echo "Waiting for NetBox migrations and server start..."
+          for i in {1..60}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/login/ || true)
+            echo "Attempt $i (elapsed ~$((i*6))s): HTTP Status $STATUS"
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
-              echo "NetBox is healthy!"
+              echo "NetBox is healthy and ready!"
               exit 0
             fi
-            sleep 4
+            sleep 6
           done
-          echo "Healthcheck failed! Showing NetBox logs:"
-          docker compose logs --tail=50 netbox
+          echo "Healthcheck failed! Showing container logs:"
+          docker compose logs --tail=60 netbox
           exit 1
 
       - name: Cleanup containers
